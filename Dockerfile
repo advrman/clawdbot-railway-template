@@ -25,15 +25,11 @@ ARG CLAWDBOT_GIT_REF=v2026.1.24-1
 RUN git clone --depth 1 --branch "${CLAWDBOT_GIT_REF}" https://github.com/clawdbot/clawdbot.git .
 
 # Patch: relax version requirements for packages that may reference unpublished versions.
-# Scope this narrowly to avoid surprising dependency mutations.
+# Apply to all extension package.json files to handle workspace protocol (workspace:*).
 RUN set -eux; \
-  for f in \
-    ./extensions/memory-core/package.json \
-    ./extensions/googlechat/package.json \
-  ; do \
-    if [ -f "$f" ]; then \
-      sed -i -E 's/"clawdbot"[[:space:]]*:[[:space:]]*">=[^"]+"/"clawdbot": "*"/g' "$f"; \
-    fi; \
+  find ./extensions -name 'package.json' -type f | while read -r f; do \
+    sed -i -E 's/"clawdbot"[[:space:]]*:[[:space:]]*">=[^"]+"/"clawdbot": "*"/g' "$f"; \
+    sed -i -E 's/"clawdbot"[[:space:]]*:[[:space:]]*"workspace:[^"]+"/"clawdbot": "*"/g' "$f"; \
   done
 
 RUN pnpm install --no-frozen-lockfile
@@ -66,6 +62,8 @@ RUN printf '%s\n' '#!/usr/bin/env bash' 'exec node /clawdbot/dist/entry.js "$@"'
 
 COPY src ./src
 
+# The wrapper listens on this port.
+ENV CLAWDBOT_PUBLIC_PORT=8080
 ENV PORT=8080
 EXPOSE 8080
 CMD ["node", "src/server.js"]
